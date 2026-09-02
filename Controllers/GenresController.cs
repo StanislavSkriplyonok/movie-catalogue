@@ -16,14 +16,14 @@ public class GenresController : ControllerBase
         _context = context;
     }
 
-    //Get list of genres
+    // GET: api/genres
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Genre>>> GetGenres()
     {
         return await _context.Genres.ToListAsync();
     }
 
-    //Get genre by id or message "Not Found" if null
+    // GET: api/genres/1
     [HttpGet("{id}")]
     public async Task<ActionResult<Genre>> GetGenre(int id)
     {
@@ -32,7 +32,7 @@ public class GenresController : ControllerBase
         return genre;
     }
 
-    //Create genre
+    // POST: api/genres
     [HttpPost]
     public async Task<ActionResult<Genre>> CreateGenre(Genre genre)
     {
@@ -41,7 +41,7 @@ public class GenresController : ControllerBase
         return CreatedAtAction(nameof(GetGenre), new { id = genre.Id }, genre);
     }
 
-    //Update genre information by id
+    // PUT: api/genres/1
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateGenre(int id, Genre genre)
     {
@@ -52,7 +52,7 @@ public class GenresController : ControllerBase
         return NoContent();
     }
 
-    //Delete genre by id
+    // DELETE: api/genres/1
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteGenre(int id)
     {
