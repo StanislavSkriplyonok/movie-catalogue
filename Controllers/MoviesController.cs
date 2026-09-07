@@ -46,6 +46,22 @@ public class MoviesController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Movie>> CreateMovie(Movie movie)
     {
+        // Attach existing genres instead of trying to insert new ones
+        for (int i = 0; i < movie.Genres.Count; i++)
+        {
+            var existingGenre = await _context.Genres.FindAsync(movie.Genres[i].Id);
+            if (existingGenre != null)
+                movie.Genres[i] = existingGenre;
+        }
+
+        // Attach existing actors the same way
+        for (int i = 0; i < movie.Actors.Count; i++)
+        {
+            var existingActor = await _context.People.FindAsync(movie.Actors[i].Id);
+            if (existingActor != null)
+                movie.Actors[i] = existingActor;
+        }
+
         _context.Movies.Add(movie);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, movie);
