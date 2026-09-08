@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieCatalog.Api.Data;
+using MovieCatalog.Api.DTOs;
+using MovieCatalog.Api.Mapping;
 using MovieCatalog.Api.Models;
 
 namespace MovieCatalog.Api.Controllers;
@@ -18,37 +20,47 @@ public class PeopleController : ControllerBase
 
     // GET: api/people
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Person>>> GetPeople()
+    public async Task<ActionResult<IEnumerable<PersonDto>>> GetPeople()
     {
-        return await _context.People.ToListAsync();
+        var people = await _context.People
+            .OrderBy(g => g.Id)
+            .ToListAsync();
+        return people.Select(p => p.ToDto()).ToList();
     }
 
     // GET: api/people/1
     [HttpGet("{id}")]
-    public async Task<ActionResult<Person>> GetPerson(int id)
+    public async Task<ActionResult<PersonDto>> GetPerson(int id)
     {
-        var person = await _context.People.FindAsync();
+        var person = await _context.People.FindAsync(id);
         if (person == null) return NotFound();
-        return person;
+        return person.ToDto();
     }
 
     // POST: api/people
     [HttpPost]
-    public async Task<ActionResult<Person>> CreatePerson(Person person)
+    public async Task<ActionResult<PersonDto>> CreatePerson(CreatePersonDto dto)
     {
+        var person = dto.ToEntity();
+
         _context.People.Add(person);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetPerson), new { id = person.Id }, person);
+
+        return CreatedAtAction(nameof(GetPerson), new { id = person.Id }, person.ToDto());
     }
 
     // PUT: api/people/1
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdatePerson(int id, Person person)
+    public async Task<IActionResult> UpdatePerson(int id, UpdatePersonDto dto)
     {
-        if (id != person.Id) return BadRequest();
+        var person = await _context.People.FindAsync(id);
+        if (person == null) return NotFound();
 
-        _context.Entry(person).State = EntityState.Modified;
+        person.Name = dto.Name;
+        person.Surname = dto.Surname;
+        person.BirthYear = dto.BirthYear;
         await _context.SaveChangesAsync();
+
         return NoContent();
     }
 

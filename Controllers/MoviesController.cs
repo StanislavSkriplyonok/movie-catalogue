@@ -2,6 +2,8 @@ using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieCatalog.Api.Data;
+using MovieCatalog.Api.DTOs;
+using MovieCatalog.Api.Mapping;
 using MovieCatalog.Api.Models;
 
 namespace MovieCatalog.Api.Controllers;
@@ -19,18 +21,21 @@ public class MoviesController : ControllerBase
 
     // GET: api/movies
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Movie>>> GetMovies()
+    public async Task<ActionResult<IEnumerable<MovieDto>>> GetMovies()
     {
-        return await _context.Movies
+        var movies = await _context.Movies
             .Include(m => m.Director)
             .Include(m => m.Genres)
             .Include(m => m.Actors)
+            .OrderBy(g => g.Id)
             .ToListAsync();
+
+        return movies.Select(m => m.ToDto()).ToList();
     }
 
     // GET: api/movies/1
     [HttpGet("{id}")]
-    public async Task<ActionResult<Movie>> GetMovie(int id)
+    public async Task<ActionResult<MovieDto>> GetMovie(int id)
     {
         var movie = await _context.Movies
             .Include(m => m.Director)
@@ -39,42 +44,61 @@ public class MoviesController : ControllerBase
             .FirstOrDefaultAsync(m => m.Id == id);
 
         if (movie == null) return NotFound();
-        return movie;
+        return movie.ToDto();
     }
 
     // POST: api/movies
     [HttpPost]
-    public async Task<ActionResult<Movie>> CreateMovie(Movie movie)
+    public async Task<ActionResult<MovieDto>> CreateMovie(CreateMovieDto dto)
     {
-        // Attach existing genres instead of trying to insert new ones
-        for (int i = 0; i < movie.Genres.Count; i++)
+        var movie = new Movie
         {
-            var existingGenre = await _context.Genres.FindAsync(movie.Genres[i].Id);
-            if (existingGenre != null)
-                movie.Genres[i] = existingGenre;
-        }
+            Title = dto.Title,
+            ReleaseYear = dto.ReleaseYear,
+            DirectorId = dto.DirectorId
+        };
 
-        // Attach existing actors the same way
-        for (int i = 0; i < movie.Actors.Count; i++)
-        {
-            var existingActor = await _context.People.FindAsync(movie.Actors[i].Id);
-            if (existingActor != null)
-                movie.Actors[i] = existingActor;
-        }
+        movie.Genres = await _context.Genres
+            .Where(g => dto.GenreIds.Contains(g.Id))
+            .ToListAsync();
+
+        movie.Actors = await _context.People
+            .Where(p => dto.ActorIds.Contains(p.Id))
+            .ToListAsync();
 
         _context.Movies.Add(movie);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, movie);
+
+        await _context.Entry(movie).Reference(m => m.Director).LoadAsync();
+
+        return CreatedAtAction(nameof(GetMovie), new { id = movie.Id }, movie.ToDto());
     }
 
     // PUT: api/movie/1
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdatePerson(int id, Movie movie)
+    public async Task<IActionResult> UpdateMovie(int id, UpdateMovieDto dto)
     {
-        if(id != movie.Id) return BadRequest();
+        var movie = await _context.Movies
+            .Include(m => m.Genres)
+            .Include(m => m.Actors)
+            .FirstOrDefaultAsync(m => m.Id == id);
 
-        _context.Entry(movie).State = EntityState.Modified;
+        if (movie == null) return NotFound();
+
+        movie.Title = dto.Title;
+        movie.ReleaseYear = dto.ReleaseYear;
+        movie.DirectorId = dto.DirectorId;
+
+        movie.Genres = await _context.Genres
+            .Where(g => dto.GenreIds.Contains(g.Id))
+            .ToListAsync();
+
+        movie.Actors = await _context.People
+            .Where(p => dto.ActorIds.Contains(p.Id))
+            .ToListAsync();
+
         await _context.SaveChangesAsync();
+
         return NoContent();
     }
 

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieCatalog.Api.Data;
+using MovieCatalog.Api.DTOs;
+using MovieCatalog.Api.Mapping;
 using MovieCatalog.Api.Models;
 
 namespace MovieCatalog.Api.Controllers;
@@ -18,37 +20,45 @@ public class GenresController : ControllerBase
 
     // GET: api/genres
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Genre>>> GetGenres()
+    public async Task<ActionResult<IEnumerable<GenreDto>>> GetGenres()
     {
-        return await _context.Genres.ToListAsync();
+        var genres = await _context.Genres
+            .OrderBy(g => g.Id)
+            .ToListAsync();
+        return genres.Select(g => g.ToDto()).ToList();
     }
 
     // GET: api/genres/1
     [HttpGet("{id}")]
-    public async Task<ActionResult<Genre>> GetGenre(int id)
+    public async Task<ActionResult<GenreDto>> GetGenre(int id)
     {
         var genre = await _context.Genres.FindAsync(id);
-        if(genre == null) return NotFound();
-        return genre;
+        if (genre == null) return NotFound();
+        return genre.ToDto();
     }
 
     // POST: api/genres
     [HttpPost]
-    public async Task<ActionResult<Genre>> CreateGenre(Genre genre)
+    public async Task<ActionResult<GenreDto>> CreateGenre(CreateGenreDto dto)
     {
+        var genre = dto.ToEntity();
+
         _context.Genres.Add(genre);
         await _context.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetGenre), new { id = genre.Id }, genre);
+
+        return CreatedAtAction(nameof(GetGenre), new { id = genre.Id }, genre.ToDto());
     }
 
     // PUT: api/genres/1
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateGenre(int id, Genre genre)
+    public async Task<IActionResult> UpdateGenre(int id, UpdateGenreDto dto)
     {
-        if(id != genre.Id) return BadRequest();
+        var genre = await _context.Genres.FindAsync(id);
+        if (genre == null) return NotFound();
 
-        _context.Entry(genre).State = EntityState.Modified;
+        genre.Name = dto.Name;
         await _context.SaveChangesAsync();
+
         return NoContent();
     }
 
