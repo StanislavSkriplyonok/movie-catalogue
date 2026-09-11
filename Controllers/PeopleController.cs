@@ -71,6 +71,16 @@ public class PeopleController : ControllerBase
         var person = await _context.People.FindAsync(id);
         if (person == null) return NotFound();
 
+        var isDirector = await _context.Movies.AnyAsync(m => m.DirectorId == id);
+        if (isDirector)
+        {
+            return Conflict(new
+            {
+                status = 409,
+                message = "Cannot delete this person because they are a director of one or more movies."
+            });
+        }
+
         _context.People.Remove(person);
         await _context.SaveChangesAsync();
         return NoContent();

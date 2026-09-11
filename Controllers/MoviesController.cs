@@ -5,6 +5,7 @@ using MovieCatalog.Api.Data;
 using MovieCatalog.Api.DTOs;
 using MovieCatalog.Api.Mapping;
 using MovieCatalog.Api.Models;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace MovieCatalog.Api.Controllers;
 
@@ -19,15 +20,45 @@ public class MoviesController : ControllerBase
         _context = context;
     }
 
-    // GET: api/movies
+    // GET: api/movies?genre=Sci-Fi&year=2010&sortBy=title&page=1&pageSize=10
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<MovieDto>>> GetMovies()
+    public async Task<ActionResult<IEnumerable<MovieDto>>> GetMovies([FromQuery] MovieQueryParams query)
     {
-        var movies = await _context.Movies
-            .Include(m => m.Director)
-            .Include(m => m.Genres)
-            .Include(m => m.Actors)
-            .OrderBy(g => g.Id)
+        var moviesQuery = _context.Movies
+        .Include(m => m.Director)
+        .Include(m => m.Genres)
+        .Include(m => m.Actors)
+        .AsQueryable();
+        
+        //Filtering
+        if (!string.IsNullOrWhiteSpace(query.Genre))
+        {
+            moviesQuery = moviesQuery.Where(m => m.Genres.Any(g => g.Name == query.Genre));
+        }
+
+        if (query.Year.HasValue)
+        {
+            moviesQuery = moviesQuery.Where(m => m.ReleaseYear == query.Year.Value);
+        }
+
+        // Sorting
+        moviesQuery = query.SortBy?.ToLower() switch
+        {
+            "year" => query.Descending
+                ? moviesQuery.OrderByDescending(m => m.ReleaseYear)
+                : moviesQuery.OrderBy(m => m.ReleaseYear),
+            _ => query.Descending
+                ? moviesQuery.OrderByDescending(m => m.Title)
+                : moviesQuery.OrderBy(m => m.Title)
+        };
+
+        // Pagination
+        var pageSize = query.PageSize is > 0 and <= 100 ? query.PageSize : 10;
+        var page = query.Page > 0 ? query.Page : 1;
+
+        var movies = await moviesQuery
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
         return movies.Select(m => m.ToDto()).ToList();
