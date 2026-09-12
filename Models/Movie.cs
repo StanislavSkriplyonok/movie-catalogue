@@ -1,5 +1,4 @@
 namespace MovieCatalog.Api.Models;
-using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 
 public class Movie
 {
